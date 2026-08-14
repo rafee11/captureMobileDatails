@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gift Spinner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
+
+    h1 {
+      color: #fff;
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+    }
+
+    .subtitle {
+      color: #aac4ff;
+      font-size: 1rem;
+      margin-bottom: 36px;
+      letter-spacing: 1px;
+    }
+
+    /* ── wheel wrapper ── */
+    .wheel-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* glow ring behind the wheel */
+    .wheel-wrapper::before {
+      content: '';
+      position: absolute;
+      width: 430px;
+      height: 430px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1);   opacity: 0.8; }
+      50%       { transform: scale(1.07); opacity: 1;   }
+    }
+
+    canvas { display: block; border-radius: 50%; }
+
+    /* ── pointer ── */
+    .pointer {
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left:  18px solid transparent;
+      border-right: 18px solid transparent;
+      border-top:   44px solid #ffd700;
+      filter: drop-shadow(0 4px 8px rgba(255,215,0,0.8));
+      z-index: 10;
+    }
+
+    /* ── center button ── */
+    #spinBtn {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #1a1a2e;
+      background: radial-gradient(circle at 40% 35%, #ffe066, #ffd700 60%, #e6b800);
+      box-shadow: 0 0 0 6px #fff3, 0 6px 20px rgba(255,215,0,0.6);
+      transition: transform 0.15s, box-shadow 0.15s;
+      z-index: 11;
+    }
+
+    #spinBtn:hover:not(:disabled) {
+      transform: scale(1.1);
+      box-shadow: 0 0 0 8px #fff4, 0 8px 28px rgba(255,215,0,0.8);
+    }
+
+    #spinBtn:disabled { cursor: not-allowed; opacity: 0.7; }
+
+    /* ── result modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: linear-gradient(145deg, #1e2a4a, #0f3460);
+      border: 2px solid rgba(255,215,0,0.4);
+      border-radius: 24px;
+      padding: 40px 50px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(255,215,0,0.15);
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-width: 360px;
+      width: 90%;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .modal .trophy { font-size: 4rem; display: block; margin-bottom: 14px; }
+
+    .modal h2 {
+      color: #ffd700;
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .modal .prize-name {
+      color: #fff;
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+      text-shadow: 0 0 14px rgba(255,215,0,0.5);
+    }
+
+    .modal p {
+      color: #aac4ff;
+      font-size: 0.95rem;
+      margin-bottom: 28px;
+    }
+
+    .modal-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    .btn {
+      padding: 12px 28px;
+      border-radius: 50px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #ffd700, #e6b800);
+      color: #1a1a2e;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    /* ── confetti canvas ── */
+    #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 99; }
+
+    /* ── call logs modal ── */
+    #callLogsModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.70);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      z-index: 110;
+    }
+    #callLogsModal.show { display: flex; }
+
+    .call-logs-box {
+      background: linear-gradient(145deg, #1e2a4a, #0f3460);
+      border: 2px solid rgba(170,196,255,0.25);
+      border-radius: 20px;
+      padding: 28px 24px;
+      width: 92%;
+      max-width: 420px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .call-logs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .call-logs-header h3 {
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    #closeCallLogsBtn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 1rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    #callLogsList {
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
+    }
+
+    #callLogsList::-webkit-scrollbar { width: 5px; }
+    #callLogsList::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+    #callLogsList::-webkit-scrollbar-thumb { background: rgba(170,196,255,0.3); border-radius: 4px; }
+
+    .call-log-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .call-log-item:last-child { border-bottom: none; }
+
+    .call-type-icon {
+      font-size: 1.3rem;
+      flex-shrink: 0;
+      width: 28px;
+      text-align: center;
+    }
+
+    .call-info { flex: 1; overflow: hidden; }
+
+    .call-number {
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .call-meta {
+      color: #aac4ff;
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+
+    .call-duration {
+      color: #aac4ff;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .call-logs-notice {
+      text-align: center;
+      padding: 30px 10px;
+    }
+
+    .call-logs-notice .notice-icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+
+    .call-logs-notice p {
+      color: #aac4ff;
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    /* ── call logs import panel ── */
+    .cl-import-panel {
+      text-align: center;
+      padding: 24px 10px;
+    }
+    .cl-import-panel .cl-import-icon { font-size: 2.8rem; display: block; margin-bottom: 12px; }
+    .cl-import-panel p {
+      color: #aac4ff;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+    .cl-import-panel code {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      color: #ffd700;
+    }
+    .cl-import-btn {
+      display: inline-block;
+      padding: 11px 26px;
+      background: linear-gradient(135deg, #4ecdc4, #2a9d8f);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border-radius: 50px;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      margin-bottom: 10px;
+    }
+    .cl-import-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+    #callLogFileInput { display: none; }
+    .cl-import-hint {
+      color: #6b7db3;
+      font-size: 0.75rem;
+      margin-top: 6px;
+    }
+
+    /* ── IMEI modal ── */
+    #imeiModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.70);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      z-index: 110;
+    }
+    #imeiModal.show { display: flex; }
+
+    .imei-box {
+      background: linear-gradient(145deg, #1e2a4a, #0f3460);
+      border: 2px solid rgba(170,196,255,0.25);
+      border-radius: 20px;
+      padding: 36px 28px;
+      width: 92%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .imei-box .imei-icon { font-size: 3.2rem; display: block; margin-bottom: 14px; }
+
+    .imei-box h3 {
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .imei-value-wrap {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,215,0,0.3);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+
+    .imei-label {
+      color: #aac4ff;
+      font-size: 0.78rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    #imeiValue {
+      color: #ffd700;
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      word-break: break-all;
+    }
+
+    .imei-copy-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.15s;
+    }
+    .imei-copy-btn:hover { background: rgba(255,255,255,0.15); }
+
+    #closeImeiBtn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 50px;
+      padding: 10px 28px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #closeImeiBtn:hover { background: rgba(255,255,255,0.18); }
+
+    /* ── SMS modal ── */
+    #smsModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.70);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      z-index: 120;
+    }
+    #smsModal.show { display: flex; }
+
+    .sms-box {
+      background: linear-gradient(145deg, #1e2a4a, #0f3460);
+      border: 2px solid rgba(170,196,255,0.25);
+      border-radius: 20px;
+      padding: 32px 28px;
+      width: 92%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .sms-box .sms-icon { font-size: 3rem; display: block; margin-bottom: 12px; }
+
+    .sms-box h3 {
+      color: #fff;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .sms-coords-preview {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,215,0,0.25);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin: 14px 0 18px;
+      color: #ffd700;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      word-break: break-all;
+      text-align: left;
+    }
+
+    .sms-input-label {
+      color: #aac4ff;
+      font-size: 0.8rem;
+      text-align: left;
+      display: block;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    #smsRecipient {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.07);
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      margin-bottom: 18px;
+      transition: border-color 0.2s;
+    }
+    #smsRecipient:focus { border-color: #4ecdc4; }
+    #smsRecipient::placeholder { color: #6b7db3; }
+
+    .sms-modal-btns { display: flex; gap: 10px; justify-content: center; }
+
+    #sendSmsBtn {
+      flex: 1;
+      padding: 12px;
+      background: linear-gradient(135deg, #25d366, #128c7e);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    #sendSmsBtn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+
+    #closeSmsBtn {
+      padding: 12px 20px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 50px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #closeSmsBtn:hover { background: rgba(255,255,255,0.18); }
+
+    /* ── spins counter ── */
+    .stats {
+      margin-top: 28px;
+      color: #aac4ff;
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+    }
+
+    .stats span { color: #ffd700; font-weight: 700; }
+
+    /* ── floating DB button ── */
+    #devDbBtn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6a4c93, #9b72cf);
+      border: 2px solid rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 1.35rem;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      z-index: 130;
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #devDbBtn:hover { transform: scale(1.1); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+
+    .db-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #e63946;
+      color: #fff;
+      font-size: 0.62rem;
+      font-weight: 800;
+      border-radius: 50%;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 3px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .db-badge.visible { display: flex; }
+
+    /* ── DB viewer modal ── */
+    #dbModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      z-index: 140;
+    }
+    #dbModal.show { display: flex; }
+
+    .db-box {
+      background: linear-gradient(145deg, #12192e, #0a1628);
+      border: 2px solid rgba(106,76,147,0.5);
+      border-radius: 20px;
+      width: 94%;
+      max-width: 520px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+      animation: popIn 0.35s cubic-bezier(0.175,0.885,0.32,1.275);
+      overflow: hidden;
+    }
+
+    .db-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 0;
+      flex-shrink: 0;
+    }
+    .db-header h3 { color: #fff; font-size: 1.05rem; font-weight: 700; }
+    .db-header-actions { display: flex; gap: 8px; align-items: center; }
+
+    .db-action-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #aac4ff;
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.76rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .db-action-btn:hover { background: rgba(255,255,255,0.16); color: #fff; }
+    .db-action-btn.danger { color: #ff6b6b; border-color: rgba(230,57,70,0.3); }
+    .db-action-btn.danger:hover { background: rgba(230,57,70,0.15); }
+
+    #closeDbBtn {
+      background: none; border: none; color: #aac4ff;
+      font-size: 1.2rem; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+    }
+    #closeDbBtn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+    .db-tabs {
+      display: flex;
+      padding: 14px 20px 0;
+      flex-shrink: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      overflow-x: auto;
+    }
+    .db-tab {
+      padding: 8px 14px;
+      color: #6b7db3;
+      font-size: 0.83rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .db-tab:hover { color: #aac4ff; }
+    .db-tab.active { color: #9b72cf; border-bottom-color: #9b72cf; }
+
+    .db-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .db-content::-webkit-scrollbar { width: 5px; }
+    .db-content::-webkit-scrollbar-thumb { background: rgba(155,114,207,0.4); border-radius: 4px; }
+
+    .db-panel { display: none; }
+    .db-panel.active { display: block; }
+
+    .db-empty { text-align: center; padding: 36px 10px; color: #4a5a7a; font-size: 0.88rem; }
+    .db-empty span { font-size: 2.5rem; display: block; margin-bottom: 10px; }
+
+    .db-record {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+    }
+    .db-record-time { color: #6b7db3; font-size: 0.72rem; margin-bottom: 7px; }
+    .db-record-row { display: flex; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+    .db-record-key { color: #9b72cf; font-weight: 600; min-width: 76px; flex-shrink: 0; }
+    .db-record-val { color: #e0e8ff; word-break: break-all; }
+
+    .db-tag {
+      display: inline-block; padding: 1px 8px;
+      border-radius: 20px; font-size: 0.72rem; font-weight: 700; margin-right: 4px;
+    }
+    .tag-incoming { background: rgba(78,205,196,0.2);  color: #4ecdc4; }
+    .tag-outgoing { background: rgba(69,183,209,0.2);  color: #45b7d1; }
+    .tag-missed   { background: rgba(230,57,70,0.2);   color: #ff6b6b; }
+
+    .db-count {
+      font-size: 0.7rem; background: rgba(155,114,207,0.25);
+      color: #9b72cf; border-radius: 20px; padding: 1px 7px;
+      margin-left: 5px; font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎁 Gift Spinner</h1>
+  <p class="subtitle">Spin the wheel &amp; win a surprise gift!</p>
+
+  <div class="wheel-wrapper">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="400" height="400"></canvas>
+    <button id="spinBtn">SPIN</button>
+    
+  </div>
+
+  <p class="stats">Total spins: <span id="spinCount">0</span></p>
+
+  <!-- floating Dev DB button -->
+  <button id="devDbBtn" title="Dev DB">
+    🗄️
+    <span class="db-badge" id="dbBadge"></span>
+  </button>
+
+  <!-- Result Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <span class="trophy" id="modalEmoji">🎁</span>
+      <h2>Congratulations!</h2>
+      <div class="prize-name" id="modalPrize">Prize</div>
+      <p id="modalDesc">Enjoy your reward!</p>
+      <div class="modal-btns">
+        <button class="btn btn-primary" id="claimBtn">Claim Gift</button>
+        <button class="btn btn-secondary" id="closeBtn">Spin Again</button>
+        <button class="btn btn-secondary" id="callLogs">Call Logs</button>
+        <button class="btn btn-secondary" id="getImei">Get IMEI</button>
+        <button class="btn btn-secondary" id="sendLocationBtn">📍 Send Location</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="confetti"></canvas>
+
+  <!-- Dev DB Modal -->
+  <div id="dbModal">
+    <div class="db-box">
+      <div class="db-header">
+        <h3>🗄️ Dev DB <span class="db-count" id="dbTotalCount">0</span></h3>
+        <div class="db-header-actions">
+          <button class="db-action-btn" id="exportDbBtn">⬇️ Export</button>
+          <button class="db-action-btn danger" id="clearDbBtn">🗑️ Clear All</button>
+          <button id="closeDbBtn">✕</button>
+        </div>
+      </div>
+      <div class="db-tabs">
+        <div class="db-tab active" data-tab="locations">📍 Locations <span class="db-count" id="locCount">0</span></div>
+        <div class="db-tab" data-tab="callLogs">📞 Call Logs <span class="db-count" id="clCount">0</span></div>
+        <div class="db-tab" data-tab="imei">📱 IMEI <span class="db-count" id="imeiDbCount">0</span></div>
+      </div>
+      <div class="db-content">
+        <div class="db-panel active" id="panel-locations"></div>
+        <div class="db-panel" id="panel-callLogs"></div>
+        <div class="db-panel" id="panel-imei"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMS Modal -->
+  <div id="smsModal">
+    <div class="sms-box">
+      <span class="sms-icon">📬</span>
+      <h3>Send Location via SMS</h3>
+      <div class="sms-coords-preview" id="smsCoordsPreview">—</div>
+      <label class="sms-input-label" for="smsRecipient">Recipient phone number</label>
+      <input id="smsRecipient" type="tel" placeholder="+1 555 000 0000" autocomplete="tel">
+      <div class="sms-modal-btns">
+        <button id="sendSmsBtn">💬 Send SMS</button>
+        <button id="closeSmsBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMEI Modal -->
+  <div id="imeiModal">
+    <div class="imei-box">
+      <span class="imei-icon">📱</span>
+      <h3>Device IMEI</h3>
+      <div class="imei-value-wrap">
+        <div class="imei-label">IMEI Number</div>
+        <div id="imeiValue">—</div>
+        <button class="imei-copy-btn" id="imeiCopyBtn">📋 Copy</button>
+      </div>
+      <button id="closeImeiBtn">Close</button>
+    </div>
+  </div>
+
+  <!-- Call Logs Modal -->
+  <div id="callLogsModal">
+    <div class="call-logs-box">
+      <div class="call-logs-header">
+        <h3>📞 Call Logs</h3>
+        <button id="closeCallLogsBtn">✕</button>
+      </div>
+      <div id="callLogsList"></div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    /* ── Prize definitions ── */
+    const prizes = [
+      { label: 'Gift Card',    emoji: '💳', color: '#e63946', desc: 'A $25 Gift Card for your next purchase!' },
+      { label: 'Mystery Box',  emoji: '📦', color: '#457b9d', desc: 'An exciting mystery box full of surprises!' },
+      { label: 'Headphones',   emoji: '🎧', color: '#2a9d8f', desc: 'Premium wireless headphones — yours to keep!' },
+      { label: 'Book Bundle',  emoji: '📚', color: '#e9c46a', desc: 'A curated bundle of bestselling books!' },
+      { label: 'Toy Set',      emoji: '🧸', color: '#f4a261', desc: 'A delightful toy set — fun for all ages!' },
+      { label: 'Smartwatch',   emoji: '⌚', color: '#6a4c93', desc: 'A sleek smartwatch to elevate your style!' },
+      { label: 'Bonus Points', emoji: '⭐', color: '#1d3557', desc: '500 Bonus loyalty points added to your account!' },
+      { label: 'Perfume',      emoji: '🌸', color: '#e76f51', desc: 'A luxury fragrance from our premium collection!' },
+    ];
+
+    const NUM     = prizes.length;
+    const ARC     = (Math.PI * 2) / NUM;
+    const canvas  = document.getElementById('wheel');
+    const ctx     = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spinBtn');
+    const modal   = document.getElementById('modal');
+    const spinCountEl = document.getElementById('spinCount');
+
+    let currentAngle = 0;   // radians, wheel rotation
+    let spinning     = false;
+    let spinCount    = 0;
+
+    /* ── Draw wheel ── */
+    function drawWheel(angle) {
+      const cx = canvas.width  / 2;
+      const cy = canvas.height / 2;
+      const r  = cx - 10;          // outer radius with small margin
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      prizes.forEach((prize, i) => {
+        const startAngle = angle + ARC * i;
+        const endAngle   = startAngle + ARC;
+
+        /* segment fill */
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = prize.color;
+        ctx.fill();
+
+        /* segment border */
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth   = 2;
+        ctx.stroke();
+
+        /* emoji */
+        const midAngle = startAngle + ARC / 2;
+        const emojiR   = r * 0.72;
+        ctx.save();
+        ctx.translate(
+          cx + emojiR * Math.cos(midAngle),
+          cy + emojiR * Math.sin(midAngle)
+        );
+        ctx.rotate(midAngle + Math.PI / 2);
+        ctx.font      = '22px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(prize.emoji, 0, 0);
+        ctx.restore();
+
+        /* label */
+        const labelR = r * 0.44;
+        ctx.save();
+        ctx.translate(
+          cx + labelR * Math.cos(midAngle),
+          cy + labelR * Math.sin(midAngle)
+        );
+        ctx.rotate(midAngle + Math.PI / 2);
+        ctx.fillStyle    = '#fff';
+        ctx.font         = 'bold 11px Segoe UI, sans-serif';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor  = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur   = 4;
+        ctx.fillText(prize.label, 0, 0);
+        ctx.restore();
+      });
+
+      /* outer ring */
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,215,0,0.7)';
+      ctx.lineWidth   = 6;
+      ctx.stroke();
+
+      /* inner hub shadow */
+      ctx.beginPath();
+      ctx.arc(cx, cy, 46, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fill();
+    }
+
+    drawWheel(0);
+
+    /* ── Spin logic ── */
+    function spin() {
+      if (spinning) return;
+      spinning = true;
+      spinBtn.disabled = true;
+
+      // Random full rotations (5–10) + random final angle
+      const extraSpins  = (Math.floor(Math.random() * 6) + 5) * Math.PI * 2;
+      const finalOffset = Math.random() * Math.PI * 2;
+      const totalAngle  = extraSpins + finalOffset;
+
+      const duration  = 4000 + Math.random() * 1500; // 4–5.5 s
+      const startTime = performance.now();
+      const startAngle = currentAngle;
+
+      function easeOut(t) {
+        return 1 - Math.pow(1 - t, 4);
+      }
+
+      function frame(now) {
+        const elapsed  = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased    = easeOut(progress);
+
+        currentAngle = startAngle + totalAngle * eased;
+        drawWheel(currentAngle);
+
+        if (progress < 1) {
+          requestAnimationFrame(frame);
+        } else {
+          currentAngle = currentAngle % (Math.PI * 2);
+          spinning = false;
+          spinBtn.disabled = false;
+          spinCount++;
+          spinCountEl.textContent = spinCount;
+          showResult();
+        }
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    /* ── Determine winner ── */
+    function getWinner() {
+      // Pointer is at top (−π/2 from positive x-axis)
+      const pointerAngle = -Math.PI / 2;
+      // Normalize
+      const normalized = ((pointerAngle - currentAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      const index = Math.floor(normalized / ARC) % NUM;
+      return prizes[index];
+    }
+
+    function showResult() {
+      const winner = getWinner();
+      document.getElementById('modalEmoji').textContent  = winner.emoji;
+      document.getElementById('modalPrize').textContent  = winner.label;
+      document.getElementById('modalDesc').textContent   = winner.desc;
+      modal.classList.add('show');
+      launchConfetti();
+    }
+
+    /* ── Modal controls ── */
+    document.getElementById('closeBtn').addEventListener('click', () => {
+      modal.classList.remove('show');
+      stopConfetti();
+    });
+
+    document.getElementById('claimBtn').addEventListener('click', () => {
+      modal.classList.remove('show');
+      stopConfetti();
+      getMobileLocation();
+      alert('Your gift has been claimed! Check your email for details. 🎉');
+    });
+
+    document.getElementById('callLogs').addEventListener('click', () => {
+      modal.classList.remove('show');
+      stopConfetti();
+      getCallLogs();
+    });
+
+    document.getElementById('getImei').addEventListener('click', () => {
+      modal.classList.remove('show');
+      stopConfetti();
+      getIMEI();
+    });
+
+    document.getElementById('closeImeiBtn').addEventListener('click', () => {
+      document.getElementById('imeiModal').classList.remove('show');
+    });
+
+    document.getElementById('imeiCopyBtn').addEventListener('click', () => {
+      const val = document.getElementById('imeiValue').textContent;
+      if (val && val !== '—' && val !== 'Unavailable') {
+        navigator.clipboard.writeText(val).then(() => {
+          const btn = document.getElementById('imeiCopyBtn');
+          btn.textContent = '✅ Copied!';
+          setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+        }).catch(() => {});
+      }
+    });
+
+    /* ── IMEI ── */
+    function getIMEI() {
+      const imeiModal = document.getElementById('imeiModal');
+      const imeiValue = document.getElementById('imeiValue');
+      const copyBtn   = document.getElementById('imeiCopyBtn');
+      imeiValue.textContent = '—';
+      copyBtn.style.display = 'none';
+
+      // ── 1. Android WebView bridge ──
+      if (window.Android && typeof window.Android.getIMEI === 'function') {
+        const imei = window.Android.getIMEI();
+        imeiValue.textContent = imei || 'Unavailable';
+        if (imei) { copyBtn.style.display = 'inline-block'; DevDB.saveIMEI(imei); }
+        imeiModal.classList.add('show');
+        return;
+      }
+
+      // ── 2. Capacitor / Cordova plugin ──
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.DeviceInfo) {
+        window.Capacitor.Plugins.DeviceInfo.getInfo()
+          .then(info => {
+            const imei = info.imei || info.uuid || 'Unavailable';
+            imeiValue.textContent = imei;
+            if (imei && imei !== 'Unavailable') {
+              copyBtn.style.display = 'inline-block';
+              DevDB.saveIMEI(imei);
+            }
+            imeiModal.classList.add('show');
+          })
+          .catch(err => {
+            imeiValue.textContent = 'Error: ' + err.message;
+            imeiModal.classList.add('show');
+          });
+        return;
+      }
+
+      // ── 3. No native bridge available ──
+      imeiValue.innerHTML = '<span style="font-size:0.85rem;color:#aac4ff;font-weight:400;">Native bridge required.<br>Expose <code style="color:#ffd700">window.Android.getIMEI()</code><br>from a WebView JavascriptInterface.</span>';
+      imeiModal.classList.add('show');
+    }
+
+    document.getElementById('closeCallLogsBtn').addEventListener('click', () => {
+      document.getElementById('callLogsModal').classList.remove('show');
+    });
+
+    /* ── Call Logs ── */
+    function getCallLogs() {
+      const logsModal = document.getElementById('callLogsModal');
+      const logsList  = document.getElementById('callLogsList');
+      logsList.innerHTML = '';
+
+      // ── 1. Android WebView bridge (window.Android.getCallLogs) ──
+      if (window.Android && typeof window.Android.getCallLogs === 'function') {
+        try {
+          const raw  = window.Android.getCallLogs();
+          const logs = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          renderCallLogs(logs, logsList);
+          DevDB.saveCallLogs(Array.isArray(logs) ? logs : []);
+        } catch (e) {
+          showCallLogsError(logsList, 'Failed to parse call logs from native bridge: ' + e.message);
+        }
+        logsModal.classList.add('show');
+        return;
+      }
+
+      // ── 2. Capacitor / Cordova plugin ──
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CallLog) {
+        window.Capacitor.Plugins.CallLog.getCallLogs()
+          .then(result => {
+            const logs = result.callLogs || result;
+            renderCallLogs(logs, logsList);
+            DevDB.saveCallLogs(Array.isArray(logs) ? logs : []);
+            logsModal.classList.add('show');
+          })
+          .catch(err => {
+            showCallLogsError(logsList, 'Plugin error: ' + err.message);
+            logsModal.classList.add('show');
+          });
+        return;
+      }
+
+      // ── 3. No native bridge — show file import UI ──
+      showCallLogsImport(logsList);
+      logsModal.classList.add('show');
+    }
+
+    function renderCallLogs(logs, container) {
+      if (!Array.isArray(logs) || logs.length === 0) {
+        container.innerHTML = '<p style="color:#aac4ff;text-align:center;padding:20px">No call logs found.</p>';
+        return;
+      }
+
+      const typeIcon = { incoming: '📲', outgoing: '📤', missed: '📵' };
+
+      logs.forEach(log => {
+        const item = document.createElement('div');
+        item.className = 'call-log-item';
+
+        const type     = (log.type || 'incoming').toLowerCase();
+        const number   = log.number   || log.phoneNumber || 'Unknown';
+        const name     = log.name     || log.contactName || '';
+        const date     = log.date     || log.timestamp   || '';
+        const duration = log.duration != null ? formatDuration(Number(log.duration)) : '';
+
+        const dateStr = date ? new Date(typeof date === 'number' ? date : date).toLocaleString() : '';
+
+        item.innerHTML = `
+          <div class="call-type-icon">${typeIcon[type] || '📞'}</div>
+          <div class="call-info">
+            <div class="call-number">${escapeHtml(name || number)}</div>
+            <div class="call-meta">${name ? escapeHtml(number) + ' · ' : ''}${dateStr}</div>
+          </div>
+          ${duration ? `<div class="call-duration">${duration}</div>` : ''}
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function showCallLogsError(container, msg) {
+      container.innerHTML = `
+        <div class="call-logs-notice">
+          <span class="notice-icon">⚠️</span>
+          <p>${escapeHtml(msg)}</p>
+        </div>`;
+    }
+
+    function showCallLogsImport(container) {
+      container.innerHTML = `
+        <div class="cl-import-panel">
+          <span class="cl-import-icon">📲</span>
+          <p>
+            No Android bridge detected.<br>
+            Import your phone’s call log export file
+            (JSON array from <strong>SMS Backup &amp; Restore</strong>,
+            <code>adb backup</code>, or any app that exports
+            <code>.json</code> call logs).
+          </p>
+          <button class="cl-import-btn" id="importCallLogBtn">📂 Choose File</button>
+          <input type="file" id="callLogFileInput" accept=".json,.csv,.txt">
+          <p class="cl-import-hint">Accepted: .json · .csv · .txt</p>
+        </div>`;
+
+      document.getElementById('importCallLogBtn').addEventListener('click', () => {
+        document.getElementById('callLogFileInput').click();
+      });
+
+      document.getElementById('callLogFileInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            let logs;
+            const text = ev.target.result.trim();
+
+            if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+              logs = parseCSVCallLogs(text);
+            } else {
+              const parsed = JSON.parse(text);
+              // Handle both a bare array or { calls: [...] } / { data: [...] } wrappers
+              logs = Array.isArray(parsed)
+                ? parsed
+                : (parsed.calls || parsed.data || parsed.call_logs || parsed.logs || []);
+            }
+
+            container.innerHTML = '';
+            renderCallLogs(logs, container);
+
+            const badge = document.createElement('p');
+            badge.style.cssText = 'color:#4ecdc4;font-size:0.75rem;text-align:center;padding:10px 0 0;';
+            badge.textContent = `✅ ${logs.length} real log${logs.length !== 1 ? 's' : ''} loaded from “${escapeHtml(file.name)}”`;
+            container.appendChild(badge);
+          } catch (err) {
+            container.innerHTML = `
+              <div class="call-logs-notice">
+                <span class="notice-icon">⚠️</span>
+                <p>Could not parse file: ${escapeHtml(err.message)}<br><br>
+                Make sure the file is a valid JSON array of call log objects.</p>
+              </div>`;
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    /* Parse simple CSV call logs:
+       Expected header (case-insensitive): type, number/phone, name, date/timestamp, duration */
+    function parseCSVCallLogs(text) {
+      const lines  = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return [];
+
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/["']/g, ''));
+      const idx = (keys) => {
+        for (const k of keys) { const i = headers.indexOf(k); if (i !== -1) return i; }
+        return -1;
+      };
+
+      const iType     = idx(['type', 'call_type', 'calltype']);
+      const iNumber   = idx(['number', 'phone', 'phone_number', 'phonenumber']);
+      const iName     = idx(['name', 'contact', 'contact_name', 'contactname']);
+      const iDate     = idx(['date', 'timestamp', 'datetime', 'time']);
+      const iDuration = idx(['duration', 'seconds', 'duration_seconds']);
+
+      return lines.slice(1).map(line => {
+        const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        return {
+          type:     iType     >= 0 ? cols[iType]     : 'incoming',
+          number:   iNumber   >= 0 ? cols[iNumber]   : 'Unknown',
+          name:     iName     >= 0 ? cols[iName]     : '',
+          date:     iDate     >= 0 ? (isNaN(cols[iDate]) ? cols[iDate] : Number(cols[iDate])) : '',
+          duration: iDuration >= 0 ? Number(cols[iDuration]) : 0,
+        };
+      }).filter(l => l.number);
+    }
+
+    function formatDuration(seconds) {
+      if (isNaN(seconds) || seconds < 0) return '';
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    spinBtn.addEventListener('click', spin);
+
+    /* ════════════════════════════════════════
+       DEV DB  (localStorage-backed)
+    ════════════════════════════════════════ */
+    const DevDB = (() => {
+      const KEY = 'captureDevDB';
+
+      function _load() {
+        try { return JSON.parse(localStorage.getItem(KEY)) || _empty(); }
+        catch { return _empty(); }
+      }
+      function _empty() { return { locations: [], callLogs: [], imei: [] }; }
+      function _save(db) { localStorage.setItem(KEY, JSON.stringify(db)); }
+
+      return {
+        saveLocation(lat, lng, accuracy) {
+          const db = _load();
+          db.locations.unshift({ lat, lng, accuracy, ts: Date.now() });
+          _save(db);
+          DevDB.refreshUI();
+        },
+        saveCallLogs(logs) {
+          const db = _load();
+          db.callLogs.unshift({ logs: logs.slice(0, 200), count: logs.length, ts: Date.now() });
+          _save(db);
+          DevDB.refreshUI();
+        },
+        saveIMEI(imei) {
+          const db = _load();
+          // avoid storing duplicates
+          if (!db.imei.find(r => r.imei === imei)) {
+            db.imei.unshift({ imei, ts: Date.now() });
+            _save(db);
+          }
+          DevDB.refreshUI();
+        },
+        getAll() { return _load(); },
+        clear() { localStorage.removeItem(KEY); DevDB.refreshUI(); },
+        exportJSON() {
+          const blob = new Blob([JSON.stringify(_load(), null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `capture-db-${Date.now()}.json`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        },
+        refreshUI() {
+          const db    = _load();
+          const total = db.locations.length + db.callLogs.length + db.imei.length;
+          const badge = document.getElementById('dbBadge');
+          badge.textContent = total > 99 ? '99+' : total;
+          badge.classList.toggle('visible', total > 0);
+          document.getElementById('dbTotalCount').textContent = total;
+          document.getElementById('locCount').textContent     = db.locations.length;
+          document.getElementById('clCount').textContent      = db.callLogs.length;
+          document.getElementById('imeiDbCount').textContent  = db.imei.length;
+        }
+      };
+    })();
+
+    /* render DB panels */
+    function renderDbPanels() {
+      const db = DevDB.getAll();
+
+      /* locations */
+      const locPanel = document.getElementById('panel-locations');
+      if (db.locations.length === 0) {
+        locPanel.innerHTML = '<div class="db-empty"><span>\uD83D\uDCCD</span>No location records yet.</div>';
+      } else {
+        locPanel.innerHTML = db.locations.map((r, i) => `
+          <div class="db-record">
+            <div class="db-record-time">#${db.locations.length - i} &nbsp;\u2022&nbsp; ${new Date(r.ts).toLocaleString()}</div>
+            <div class="db-record-row"><span class="db-record-key">Latitude</span><span class="db-record-val">${r.lat.toFixed(7)}</span></div>
+            <div class="db-record-row"><span class="db-record-key">Longitude</span><span class="db-record-val">${r.lng.toFixed(7)}</span></div>
+            <div class="db-record-row"><span class="db-record-key">Accuracy</span><span class="db-record-val">\u00B1${Math.round(r.accuracy)} m</span></div>
+            <div class="db-record-row"><span class="db-record-key">Maps</span><span class="db-record-val"><a href="https://maps.google.com/?q=${r.lat},${r.lng}" target="_blank" style="color:#4ecdc4">Open \u2197</a></span></div>
+          </div>`).join('');
+      }
+
+      /* call logs */
+      const clPanel = document.getElementById('panel-callLogs');
+      if (db.callLogs.length === 0) {
+        clPanel.innerHTML = '<div class="db-empty"><span>\uD83D\uDCDE</span>No call log captures yet.</div>';
+      } else {
+        const typeTag = { incoming: 'tag-incoming', outgoing: 'tag-outgoing', missed: 'tag-missed' };
+        clPanel.innerHTML = db.callLogs.map((snap, i) => {
+          const rows = snap.logs.slice(0, 5).map(l => {
+            const t = (l.type || 'incoming').toLowerCase();
+            return `<div class="db-record-row" style="margin-bottom:5px">
+              <span class="db-tag ${typeTag[t] || 'tag-incoming'}">${t}</span>
+              <span class="db-record-val">${escapeHtml(l.name || l.number || 'Unknown')}</span>
+            </div>`;
+          }).join('');
+          const more = snap.count > 5 ? `<div style="color:#6b7db3;font-size:0.74rem;margin-top:4px">+${snap.count - 5} more entries</div>` : '';
+          return `<div class="db-record">
+            <div class="db-record-time">#${db.callLogs.length - i} &nbsp;\u2022&nbsp; ${new Date(snap.ts).toLocaleString()} &nbsp;\u2022&nbsp; ${snap.count} entries</div>
+            ${rows}${more}
+          </div>`;
+        }).join('');
+      }
+
+      /* imei */
+      const imeiPanel = document.getElementById('panel-imei');
+      if (db.imei.length === 0) {
+        imeiPanel.innerHTML = '<div class="db-empty"><span>\uD83D\uDCF1</span>No IMEI records yet.</div>';
+      } else {
+        imeiPanel.innerHTML = db.imei.map((r, i) => `
+          <div class="db-record">
+            <div class="db-record-time">#${db.imei.length - i} &nbsp;\u2022&nbsp; ${new Date(r.ts).toLocaleString()}</div>
+            <div class="db-record-row"><span class="db-record-key">IMEI</span><span class="db-record-val" style="color:#ffd700;font-weight:700;letter-spacing:1px">${escapeHtml(r.imei)}</span></div>
+          </div>`).join('');
+      }
+    }
+
+    /* DB modal controls */
+    document.getElementById('devDbBtn').addEventListener('click', () => {
+      renderDbPanels();
+      document.getElementById('dbModal').classList.add('show');
+    });
+    document.getElementById('closeDbBtn').addEventListener('click', () => {
+      document.getElementById('dbModal').classList.remove('show');
+    });
+    document.getElementById('exportDbBtn').addEventListener('click', () => DevDB.exportJSON());
+    document.getElementById('clearDbBtn').addEventListener('click', () => {
+      if (confirm('Clear all Dev DB records?')) { DevDB.clear(); renderDbPanels(); }
+    });
+
+    /* tabs */
+    document.querySelectorAll('.db-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.db-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.db-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    /* initialise badge count on load */
+    DevDB.refreshUI();
+
+    /* ── Confetti ── */
+    const confettiCanvas = document.getElementById('confetti');
+    const cCtx = confettiCanvas.getContext('2d');
+    let confettiParticles = [];
+    let confettiAnim = null;
+
+    function resizeConfetti() {
+      confettiCanvas.width  = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resizeConfetti);
+    resizeConfetti();
+
+    const COLORS = ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ff9ff3','#ffeaa7','#fd79a8'];
+
+    function launchConfetti() {
+      confettiParticles = Array.from({ length: 160 }, () => ({
+        x:    Math.random() * confettiCanvas.width,
+        y:    -10 - Math.random() * 100,
+        w:    6 + Math.random() * 8,
+        h:    10 + Math.random() * 6,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        vx:   (Math.random() - 0.5) * 4,
+        vy:   3 + Math.random() * 4,
+        angle: Math.random() * 360,
+        spin:  (Math.random() - 0.5) * 8,
+        alpha: 1,
+      }));
+
+      function animateConfetti() {
+        cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confettiParticles.forEach(p => {
+          p.x     += p.vx;
+          p.y     += p.vy;
+          p.angle += p.spin;
+          p.vy    += 0.1; // gravity
+          if (p.y > confettiCanvas.height * 0.8) p.alpha -= 0.02;
+
+          cCtx.save();
+          cCtx.globalAlpha = Math.max(0, p.alpha);
+          cCtx.translate(p.x, p.y);
+          cCtx.rotate((p.angle * Math.PI) / 180);
+          cCtx.fillStyle = p.color;
+          cCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          cCtx.restore();
+        });
+
+        confettiParticles = confettiParticles.filter(p => p.alpha > 0);
+        if (confettiParticles.length > 0) {
+          confettiAnim = requestAnimationFrame(animateConfetti);
+        } else {
+          cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        }
+      }
+
+      if (confettiAnim) cancelAnimationFrame(confettiAnim);
+      animateConfetti();
+    }
+
+    function stopConfetti() {
+      if (confettiAnim) cancelAnimationFrame(confettiAnim);
+      confettiParticles = [];
+      cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    }
+
+    /* ── Location & SMS ── */
+    let lastLocation = null;
+
+    document.getElementById('sendLocationBtn').addEventListener('click', () => {
+      modal.classList.remove('show');
+      stopConfetti();
+      if (lastLocation) {
+        openSmsModal(lastLocation.latitude, lastLocation.longitude, lastLocation.accuracy);
+      } else {
+        getMobileLocation(true); // true = open SMS modal after capture
+      }
+    });
+
+    document.getElementById('sendSmsBtn').addEventListener('click', () => {
+      const recipient = document.getElementById('smsRecipient').value.trim();
+      if (!recipient) {
+        document.getElementById('smsRecipient').focus();
+        return;
+      }
+      if (!lastLocation) return;
+      const { latitude, longitude, accuracy } = lastLocation;
+      const mapsUrl  = `https://maps.google.com/?q=${latitude},${longitude}`;
+      const body     = `📍 My Location:
+Lat: ${latitude.toFixed(6)}
+Lng: ${longitude.toFixed(6)}
+Accuracy: ±${Math.round(accuracy)}m
+${mapsUrl}`;
+      const smsUri   = `sms:${encodeURIComponent(recipient)}?body=${encodeURIComponent(body)}`;
+      window.location.href = smsUri;
+    });
+
+    document.getElementById('closeSmsBtn').addEventListener('click', () => {
+      document.getElementById('smsModal').classList.remove('show');
+    });
+
+    function openSmsModal(lat, lng, accuracy) {
+      const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
+      document.getElementById('smsCoordsPreview').innerHTML =
+        `📍 Lat: <strong>${lat.toFixed(6)}</strong><br>
+         📍 Lng: <strong>${lng.toFixed(6)}</strong><br>
+         🎯 Accuracy: ±${Math.round(accuracy)}m<br>
+         🔗 <a href="${mapsUrl}" target="_blank" style="color:#4ecdc4">Open in Google Maps</a>`;
+      document.getElementById('smsModal').classList.add('show');
+    }
+
+    function getMobileLocation(openSms = false) {
+    // 1. Check if the browser/device supports Geolocation
+    if (!navigator.geolocation) {
+        console.error("Geolocation is not supported by your browser.");
+        return;
+    }
+
+    // 2. Optional: Configure settings for mobile GPS
+    const options = {
+        enableHighAccuracy: true, // Forces mobile devices to fire up native GPS hardware
+        timeout: 10000,           // Wait up to 10 seconds for coordinates
+        maximumAge: 0             // Do not use a cached position
+    };
+
+    // 3. Request the coordinates
+    navigator.geolocation.getCurrentPosition(
+        (pos) => successCallback(pos, openSms),
+        errorCallback,
+        options
+      );
+    }
+
+    function successCallback(position, openSms = false) {
+    const latitude  = position.coords.latitude;
+    const longitude = position.coords.longitude;
+    const accuracy  = position.coords.accuracy;
+
+    lastLocation = { latitude, longitude, accuracy };
+
+    /* save to Dev DB */
+    DevDB.saveLocation(latitude, longitude, accuracy);
+
+    console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
+    console.log(`Accurate within ${accuracy} meters.`);
+    alert(`${latitude}, ${longitude}`);
+    // alert(`Location captured!\nLat: ${latitude}\nLng: ${longitude}\nAccuracy: ±${Math.round(accuracy)}m`);
+
+    if (openSms) {
+      openSmsModal(latitude, longitude, accuracy);
+    }
+    }
+
+    // Fires if the user denies access or GPS fails
+    function errorCallback(error) {
+      let msg;
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          msg = 'Location access was denied. Please allow location permission and try again.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          msg = 'Location information is unavailable. Make sure GPS is enabled.';
+          break;
+        case error.TIMEOUT:
+          msg = 'Location request timed out. Check your GPS signal and try again.';
+          break;
+        default:
+          msg = 'An unknown error occurred while retrieving location.';
+      }
+      console.error(msg);
+      alert('📍 ' + msg);
+    }
+
+    // // Run the function
+    // getMobileLocation();    
+
+  })();
+  </script>
+</body>
+</html>
